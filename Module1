@@ -1,0 +1,24 @@
+Option Explicit
+
+Sub AF30_適用理由プルダウン設定()
+
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Worksheets("旅行命令（依頼）書")
+
+    With ws.Range("AF30")
+        .Validation.Delete
+        .Validation.Add _
+            Type:=xlValidateList, _
+            AlertStyle:=xlValidAlertInformation, _
+            Operator:=xlBetween, _
+            Formula1:="=マスタ!$A$2:$A$1000"
+
+        .Validation.IgnoreBlank = True
+        .Validation.InCellDropdown = True
+        .Validation.ShowError = False   '候補外の手入力を許可
+    End With
+
+    MsgBox "AF30に適用理由のプルダウンを設定しました。"
+
+End Sub
+
