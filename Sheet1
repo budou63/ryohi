@@ -25,19 +25,20 @@ Private Sub Worksheet_Change(ByVal Target As Range)
     Set rngReasonCell = Me.Range(RYOHI_REASON_CELL)
     Set rngReasonCheck = GetMergedCheckRange(rngReasonCell)
 
-    Set rngJobTitleCell = GetNamedTopLeftCell(RYOHI_NAME_JOB_TITLE_CELL)
-    Set rngPersonNameCell = GetNamedTopLeftCell(RYOHI_NAME_PERSON_NAME_CELL)
+    Set rngJobTitleCell = GetTopLeftCell(Me.Range(RYOHI_JOB_TITLE_CELL_ADDRESS))
+    Set rngPersonNameCell = GetTopLeftCell(Me.Range(RYOHI_PERSON_NAME_CELL_ADDRESS))
+    Set rngJobTitleCheck = GetMergedCheckRange(Me.Range(RYOHI_JOB_TITLE_CELL_ADDRESS))
+    Set rngPersonNameCheck = GetMergedCheckRange(Me.Range(RYOHI_PERSON_NAME_CELL_ADDRESS))
 
-    If Not rngJobTitleCell Is Nothing Then
-        If rngJobTitleCell.Worksheet Is Me Then Set rngJobTitleCheck = GetMergedCheckRange(rngJobTitleCell)
+    jobTitleChanged = False
+    If Not rngJobTitleCheck Is Nothing Then
+        jobTitleChanged = Not (Intersect(Target, rngJobTitleCheck) Is Nothing)
     End If
 
-    If Not rngPersonNameCell Is Nothing Then
-        If rngPersonNameCell.Worksheet Is Me Then Set rngPersonNameCheck = GetMergedCheckRange(rngPersonNameCell)
+    personNameChanged = False
+    If Not rngPersonNameCheck Is Nothing Then
+        personNameChanged = Not (Intersect(Target, rngPersonNameCheck) Is Nothing)
     End If
-
-    jobTitleChanged = Not rngJobTitleCheck Is Nothing And Not Intersect(Target, rngJobTitleCheck) Is Nothing
-    personNameChanged = Not rngPersonNameCheck Is Nothing And Not Intersect(Target, rngPersonNameCheck) Is Nothing
 
     shouldDisableEvents = (Not Intersect(Target, rngReasonCheck) Is Nothing) Or jobTitleChanged Or personNameChanged
     If Not shouldDisableEvents Then Exit Sub

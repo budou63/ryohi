@@ -3,6 +3,8 @@ Option Explicit
 Public Const RYOHI_MASTER_SHEET_NAME As String = "マスタ"
 Public Const RYOHI_ORDER_SHEET_NAME As String = "旅行命令（依頼）書"
 Public Const RYOHI_REASON_CELL As String = "AF30"
+Public Const RYOHI_JOB_TITLE_CELL_ADDRESS As String = "R8"
+Public Const RYOHI_PERSON_NAME_CELL_ADDRESS As String = "AI8"
 Public Const RYOHI_NAME_JOB_TITLE_CELL As String = "旅費_職名セル"
 Public Const RYOHI_NAME_PERSON_NAME_CELL As String = "旅費_氏名セル"
 Public Const RYOHI_NAME_JOB_TITLE_LIST As String = "旅費_職名候補"
@@ -32,35 +34,15 @@ End Sub
 
 Public Sub 職名氏名セル初期設定()
 
+    Dim ws As Worksheet
     Dim rngJobTitle As Range
     Dim rngPersonName As Range
 
     On Error GoTo ErrorHandler
 
-    Set rngJobTitle = SelectTargetCell("旅行命令書の職名入力欄を選択してください")
-    If rngJobTitle Is Nothing Then
-        MsgBox "職名入力欄の選択がキャンセルされました。", vbInformation
-        Exit Sub
-    End If
-
-    Set rngPersonName = SelectTargetCell("旅行命令書の氏名入力欄を選択してください")
-    If rngPersonName Is Nothing Then
-        MsgBox "氏名入力欄の選択がキャンセルされました。", vbInformation
-        Exit Sub
-    End If
-
-    If Not (rngJobTitle.Worksheet.Parent Is ThisWorkbook) Then
-        MsgBox "職名入力欄は、このブック内のセルを選択してください。", vbExclamation
-        Exit Sub
-    End If
-
-    If Not (rngPersonName.Worksheet.Parent Is ThisWorkbook) Then
-        MsgBox "氏名入力欄は、このブック内のセルを選択してください。", vbExclamation
-        Exit Sub
-    End If
-
-    Set rngJobTitle = GetTopLeftCell(rngJobTitle)
-    Set rngPersonName = GetTopLeftCell(rngPersonName)
+    Set ws = ThisWorkbook.Worksheets(RYOHI_ORDER_SHEET_NAME)
+    Set rngJobTitle = GetTopLeftCell(ws.Range(RYOHI_JOB_TITLE_CELL_ADDRESS))
+    Set rngPersonName = GetTopLeftCell(ws.Range(RYOHI_PERSON_NAME_CELL_ADDRESS))
 
     SetWorkbookNameToRange RYOHI_NAME_JOB_TITLE_CELL, rngJobTitle
     SetWorkbookNameToRange RYOHI_NAME_PERSON_NAME_CELL, rngPersonName
@@ -68,8 +50,8 @@ Public Sub 職名氏名セル初期設定()
     職名氏名入力規則設定
 
     MsgBox "職名・氏名セルの初期設定が完了しました。" & vbCrLf & _
-           "職名セル: " & rngJobTitle.Worksheet.Name & "!" & rngJobTitle.Address(False, False) & vbCrLf & _
-           "氏名セル: " & rngPersonName.Worksheet.Name & "!" & rngPersonName.Address(False, False), vbInformation
+           "職名セル：" & ws.Name & "!" & RYOHI_JOB_TITLE_CELL_ADDRESS & vbCrLf & _
+           "氏名セル：" & ws.Name & "!" & RYOHI_PERSON_NAME_CELL_ADDRESS, vbInformation
     Exit Sub
 
 ErrorHandler:
@@ -77,38 +59,22 @@ ErrorHandler:
 
 End Sub
 
-Private Function SelectTargetCell(ByVal promptText As String) As Range
-
-    On Error Resume Next
-    Set SelectTargetCell = Application.InputBox(promptText, "職名・氏名セル初期設定", Type:=8)
-    If Err.Number <> 0 Then
-        Err.Clear
-        Set SelectTargetCell = Nothing
-    End If
-    On Error GoTo 0
-
-    If Not SelectTargetCell Is Nothing Then
-        Set SelectTargetCell = SelectTargetCell.Cells(1, 1)
-    End If
-
-End Function
-
 Public Sub 職名氏名入力規則設定()
 
+    Dim ws As Worksheet
     Dim rngJobTitle As Range
     Dim rngPersonName As Range
 
-    Set rngJobTitle = GetNamedTopLeftCell(RYOHI_NAME_JOB_TITLE_CELL)
-    Set rngPersonName = GetNamedTopLeftCell(RYOHI_NAME_PERSON_NAME_CELL)
+    Set ws = ThisWorkbook.Worksheets(RYOHI_ORDER_SHEET_NAME)
+    Set rngJobTitle = GetTopLeftCell(ws.Range(RYOHI_JOB_TITLE_CELL_ADDRESS))
+    Set rngPersonName = GetTopLeftCell(ws.Range(RYOHI_PERSON_NAME_CELL_ADDRESS))
 
-    If rngJobTitle Is Nothing Or rngPersonName Is Nothing Then
-        MsgBox "職名セルまたは氏名セルの名前定義が未設定です。先に「職名氏名セル初期設定」を実行してください。", vbExclamation
-        Exit Sub
-    End If
+    SetWorkbookNameToRange RYOHI_NAME_JOB_TITLE_CELL, rngJobTitle
+    SetWorkbookNameToRange RYOHI_NAME_PERSON_NAME_CELL, rngPersonName
 
     EnsureMasterListNames
-    ApplyListValidation rngJobTitle, RYOHI_NAME_JOB_TITLE_LIST
-    ApplyListValidation rngPersonName, RYOHI_NAME_PERSON_NAME_LIST
+    ApplyListValidation GetMergedCheckRange(rngJobTitle), RYOHI_NAME_JOB_TITLE_LIST
+    ApplyListValidation GetMergedCheckRange(rngPersonName), RYOHI_NAME_PERSON_NAME_LIST
 
 End Sub
 
