@@ -68,3 +68,12 @@
 9. エラー後も `Application.EnableEvents` が `True` のまま維持される。
 10. 複数セルの貼り付けでも実行時エラーにならない。
 11. ブック保存後、閉じて再度開いても入力規則が利用できる。
+
+## 再確認結果（追加）
+
+再度、作業ツリー全体を確認しましたが、リポジトリ内に `.xlsm` / `.xlsx` / `.xls` / `.bas` / `.cls` / `.frm` / `.frx` は存在しませんでした。
+確認できるファイルは、`README.md`、`Sheet1`、`Module1` のみです。
+
+外部の GitHub リポジトリへ `git ls-remote https://github.com/budou63/ryohi.git` で確認も試みましたが、この実行環境では `CONNECT tunnel failed, response 403` によりアクセスできませんでした。
+
+したがって、現時点でも職名セル・氏名セル・それぞれの結合範囲は、実ファイルから特定できません。
