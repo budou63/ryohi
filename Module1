@@ -1,11 +1,19 @@
 Option Explicit
 
+Public Const RYOHI_MASTER_SHEET_NAME As String = "マスタ"
+Public Const RYOHI_ORDER_SHEET_NAME As String = "旅行命令（依頼）書"
+Public Const RYOHI_REASON_CELL As String = "AF30"
+Public Const RYOHI_NAME_JOB_TITLE_CELL As String = "旅費_職名セル"
+Public Const RYOHI_NAME_PERSON_NAME_CELL As String = "旅費_氏名セル"
+Public Const RYOHI_NAME_JOB_TITLE_LIST As String = "旅費_職名候補"
+Public Const RYOHI_NAME_PERSON_NAME_LIST As String = "旅費_氏名候補"
+
 Sub AF30_適用理由プルダウン設定()
 
     Dim ws As Worksheet
-    Set ws = ThisWorkbook.Worksheets("旅行命令（依頼）書")
+    Set ws = ThisWorkbook.Worksheets(RYOHI_ORDER_SHEET_NAME)
 
-    With ws.Range("AF30")
+    With ws.Range(RYOHI_REASON_CELL)
         .Validation.Delete
         .Validation.Add _
             Type:=xlValidateList, _
@@ -18,7 +26,304 @@ Sub AF30_適用理由プルダウン設定()
         .Validation.ShowError = False   '候補外の手入力を許可
     End With
 
-    MsgBox "AF30に適用理由のプルダウンを設定しました。"
+    MsgBox RYOHI_REASON_CELL & "に適用理由のプルダウンを設定しました。"
 
 End Sub
 
+Public Sub 職名氏名セル初期設定()
+
+    Dim rngJobTitle As Range
+    Dim rngPersonName As Range
+
+    On Error GoTo ErrorHandler
+
+    Set rngJobTitle = SelectTargetCell("旅行命令書の職名入力欄を選択してください")
+    If rngJobTitle Is Nothing Then
+        MsgBox "職名入力欄の選択がキャンセルされました。", vbInformation
+        Exit Sub
+    End If
+
+    Set rngPersonName = SelectTargetCell("旅行命令書の氏名入力欄を選択してください")
+    If rngPersonName Is Nothing Then
+        MsgBox "氏名入力欄の選択がキャンセルされました。", vbInformation
+        Exit Sub
+    End If
+
+    If Not (rngJobTitle.Worksheet.Parent Is ThisWorkbook) Then
+        MsgBox "職名入力欄は、このブック内のセルを選択してください。", vbExclamation
+        Exit Sub
+    End If
+
+    If Not (rngPersonName.Worksheet.Parent Is ThisWorkbook) Then
+        MsgBox "氏名入力欄は、このブック内のセルを選択してください。", vbExclamation
+        Exit Sub
+    End If
+
+    Set rngJobTitle = GetTopLeftCell(rngJobTitle)
+    Set rngPersonName = GetTopLeftCell(rngPersonName)
+
+    SetWorkbookNameToRange RYOHI_NAME_JOB_TITLE_CELL, rngJobTitle
+    SetWorkbookNameToRange RYOHI_NAME_PERSON_NAME_CELL, rngPersonName
+
+    職名氏名入力規則設定
+
+    MsgBox "職名・氏名セルの初期設定が完了しました。" & vbCrLf & _
+           "職名セル: " & rngJobTitle.Worksheet.Name & "!" & rngJobTitle.Address(False, False) & vbCrLf & _
+           "氏名セル: " & rngPersonName.Worksheet.Name & "!" & rngPersonName.Address(False, False), vbInformation
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "職名・氏名セルの初期設定中にエラーが発生しました。" & vbCrLf & Err.Description, vbExclamation
+
+End Sub
+
+Private Function SelectTargetCell(ByVal promptText As String) As Range
+
+    On Error Resume Next
+    Set SelectTargetCell = Application.InputBox(promptText, "職名・氏名セル初期設定", Type:=8)
+    If Err.Number <> 0 Then
+        Err.Clear
+        Set SelectTargetCell = Nothing
+    End If
+    On Error GoTo 0
+
+    If Not SelectTargetCell Is Nothing Then
+        Set SelectTargetCell = SelectTargetCell.Cells(1, 1)
+    End If
+
+End Function
+
+Public Sub 職名氏名入力規則設定()
+
+    Dim rngJobTitle As Range
+    Dim rngPersonName As Range
+
+    Set rngJobTitle = GetNamedTopLeftCell(RYOHI_NAME_JOB_TITLE_CELL)
+    Set rngPersonName = GetNamedTopLeftCell(RYOHI_NAME_PERSON_NAME_CELL)
+
+    If rngJobTitle Is Nothing Or rngPersonName Is Nothing Then
+        MsgBox "職名セルまたは氏名セルの名前定義が未設定です。先に「職名氏名セル初期設定」を実行してください。", vbExclamation
+        Exit Sub
+    End If
+
+    EnsureMasterListNames
+    ApplyListValidation rngJobTitle, RYOHI_NAME_JOB_TITLE_LIST
+    ApplyListValidation rngPersonName, RYOHI_NAME_PERSON_NAME_LIST
+
+End Sub
+
+Public Sub EnsureMasterListNames()
+
+    Dim wsMaster As Worksheet
+    Set wsMaster = ThisWorkbook.Worksheets(RYOHI_MASTER_SHEET_NAME)
+
+    SetWorkbookNameFormula RYOHI_NAME_JOB_TITLE_LIST, _
+        "='" & wsMaster.Name & "'!$B$2:INDEX('" & wsMaster.Name & "'!$B:$B,MAX(2,LOOKUP(2,1/('" & wsMaster.Name & "'!$B:$B<>""""),ROW('" & wsMaster.Name & "'!$B:$B))))"
+    SetWorkbookNameFormula RYOHI_NAME_PERSON_NAME_LIST, _
+        "='" & wsMaster.Name & "'!$C$2:INDEX('" & wsMaster.Name & "'!$C:$C,MAX(2,LOOKUP(2,1/('" & wsMaster.Name & "'!$C:$C<>""""),ROW('" & wsMaster.Name & "'!$C:$C))))"
+
+End Sub
+
+Private Sub ApplyListValidation(ByVal targetCell As Range, ByVal listName As String)
+
+    With targetCell.Validation
+        .Delete
+        .Add _
+            Type:=xlValidateList, _
+            AlertStyle:=xlValidAlertInformation, _
+            Operator:=xlBetween, _
+            Formula1:="=" & listName
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .ShowError = False   '候補外の直接入力を許可
+    End With
+
+End Sub
+
+Public Sub RegisterJobTitleAndPersonName(ByVal jobTitleValue As String, ByVal personNameValue As String)
+
+    Dim wsMaster As Worksheet
+    Dim jobTitleToSave As String
+    Dim personNameToSave As String
+    Dim nextRow As Long
+
+    jobTitleToSave = CleanMasterTextForSave(jobTitleValue)
+    personNameToSave = CleanMasterTextForSave(personNameValue)
+
+    '片方だけ入力された段階では登録しない
+    If NormalizeMasterText(jobTitleToSave) = "" Or NormalizeMasterText(personNameToSave) = "" Then Exit Sub
+
+    Set wsMaster = ThisWorkbook.Worksheets(RYOHI_MASTER_SHEET_NAME)
+
+    If IsJobTitlePersonNameRegistered(jobTitleToSave, personNameToSave) Then Exit Sub
+
+    nextRow = GetNextJobTitlePersonNameRow(wsMaster)
+    wsMaster.Cells(nextRow, "B").Value = jobTitleToSave
+    wsMaster.Cells(nextRow, "C").Value = personNameToSave
+
+    EnsureMasterListNames
+
+End Sub
+
+Public Function IsJobTitlePersonNameRegistered(ByVal jobTitleValue As String, ByVal personNameValue As String) As Boolean
+
+    Dim wsMaster As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    Dim normalizedJobTitle As String
+    Dim normalizedPersonName As String
+
+    Set wsMaster = ThisWorkbook.Worksheets(RYOHI_MASTER_SHEET_NAME)
+    lastRow = GetLastJobTitlePersonNameRow(wsMaster)
+    normalizedJobTitle = NormalizeMasterText(jobTitleValue)
+    normalizedPersonName = NormalizeMasterText(personNameValue)
+
+    For i = 2 To lastRow
+        If NormalizeMasterText(wsMaster.Cells(i, "B").Value) = normalizedJobTitle _
+           And NormalizeMasterText(wsMaster.Cells(i, "C").Value) = normalizedPersonName Then
+            IsJobTitlePersonNameRegistered = True
+            Exit Function
+        End If
+    Next i
+
+End Function
+
+Public Function GetLatestJobTitleByPersonName(ByVal personNameValue As String) As String
+
+    Dim wsMaster As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    Dim normalizedPersonName As String
+
+    normalizedPersonName = NormalizeMasterText(personNameValue)
+    If normalizedPersonName = "" Then Exit Function
+
+    Set wsMaster = ThisWorkbook.Worksheets(RYOHI_MASTER_SHEET_NAME)
+    lastRow = GetLastJobTitlePersonNameRow(wsMaster)
+
+    '同じ氏名が複数ある場合は、最も下の行を最新職名として採用する
+    For i = lastRow To 2 Step -1
+        If NormalizeMasterText(wsMaster.Cells(i, "C").Value) = normalizedPersonName Then
+            GetLatestJobTitleByPersonName = CleanMasterTextForSave(wsMaster.Cells(i, "B").Value)
+            Exit Function
+        End If
+    Next i
+
+End Function
+
+Public Function NormalizeMasterText(ByVal value As Variant) As String
+
+    Dim textValue As String
+
+    textValue = CStr(value)
+    textValue = Replace(textValue, vbCrLf, vbLf)
+    textValue = Replace(textValue, vbCr, vbLf)
+
+    Do While InStr(textValue, vbLf & vbLf) > 0
+        textValue = Replace(textValue, vbLf & vbLf, vbLf)
+    Loop
+
+    textValue = TrimHalfAndFullWidthSpaces(textValue)
+    NormalizeMasterText = textValue
+
+End Function
+
+Public Function CleanMasterTextForSave(ByVal value As Variant) As String
+
+    Dim textValue As String
+
+    textValue = CStr(value)
+    textValue = Replace(textValue, vbCrLf, vbLf)
+    textValue = Replace(textValue, vbCr, vbLf)
+    textValue = TrimHalfAndFullWidthSpaces(textValue)
+    CleanMasterTextForSave = textValue
+
+End Function
+
+Private Function TrimHalfAndFullWidthSpaces(ByVal textValue As String) As String
+
+    Do While Len(textValue) > 0 And IsEdgeBlankChar(Left$(textValue, 1))
+        textValue = Mid$(textValue, 2)
+    Loop
+
+    Do While Len(textValue) > 0 And IsEdgeBlankChar(Right$(textValue, 1))
+        textValue = Left$(textValue, Len(textValue) - 1)
+    Loop
+
+    TrimHalfAndFullWidthSpaces = textValue
+
+End Function
+
+Private Function IsEdgeBlankChar(ByVal characterValue As String) As Boolean
+
+    IsEdgeBlankChar = (characterValue = " " Or characterValue = "　" Or characterValue = vbLf Or characterValue = vbCr Or characterValue = vbTab)
+
+End Function
+
+Public Function GetNamedTopLeftCell(ByVal nameText As String) As Range
+
+    Dim rng As Range
+
+    On Error GoTo NotFound
+    Set rng = ThisWorkbook.Names(nameText).RefersToRange
+    Set GetNamedTopLeftCell = GetTopLeftCell(rng)
+    Exit Function
+
+NotFound:
+    Set GetNamedTopLeftCell = Nothing
+
+End Function
+
+Public Function GetTopLeftCell(ByVal targetRange As Range) As Range
+
+    If targetRange.MergeCells Then
+        Set GetTopLeftCell = targetRange.MergeArea.Cells(1, 1)
+    Else
+        Set GetTopLeftCell = targetRange.Cells(1, 1)
+    End If
+
+End Function
+
+Public Function GetMergedCheckRange(ByVal targetCell As Range) As Range
+
+    If targetCell.MergeCells Then
+        Set GetMergedCheckRange = targetCell.MergeArea
+    Else
+        Set GetMergedCheckRange = targetCell
+    End If
+
+End Function
+
+Public Function GetLastJobTitlePersonNameRow(ByVal wsMaster As Worksheet) As Long
+
+    Dim lastJobTitleRow As Long
+    Dim lastPersonNameRow As Long
+
+    lastJobTitleRow = wsMaster.Cells(wsMaster.Rows.Count, "B").End(xlUp).Row
+    lastPersonNameRow = wsMaster.Cells(wsMaster.Rows.Count, "C").End(xlUp).Row
+
+    GetLastJobTitlePersonNameRow = WorksheetFunction.Max(2, lastJobTitleRow, lastPersonNameRow)
+
+End Function
+
+Public Function GetNextJobTitlePersonNameRow(ByVal wsMaster As Worksheet) As Long
+
+    GetNextJobTitlePersonNameRow = GetLastJobTitlePersonNameRow(wsMaster) + 1
+
+End Function
+
+Private Sub SetWorkbookNameToRange(ByVal nameText As String, ByVal targetCell As Range)
+
+    SetWorkbookNameFormula nameText, "='" & targetCell.Worksheet.Name & "'!" & targetCell.Address(True, True)
+
+End Sub
+
+Private Sub SetWorkbookNameFormula(ByVal nameText As String, ByVal refersToFormula As String)
+
+    On Error Resume Next
+    ThisWorkbook.Names(nameText).Delete
+    On Error GoTo 0
+
+    ThisWorkbook.Names.Add Name:=nameText, RefersTo:=refersToFormula
+
+End Sub

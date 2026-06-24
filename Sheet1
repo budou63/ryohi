@@ -3,50 +3,84 @@ Option Explicit
 Private Sub Worksheet_Change(ByVal Target As Range)
 
     Dim wsMaster As Worksheet
-    Dim rngTarget As Range
-    Dim rngCheck As Range
-    Dim txt As String
+    Dim rngReasonCell As Range
+    Dim rngReasonCheck As Range
+    Dim rngJobTitleCell As Range
+    Dim rngPersonNameCell As Range
+    Dim rngJobTitleCheck As Range
+    Dim rngPersonNameCheck As Range
+    Dim reasonText As String
     Dim lastRow As Long
     Dim found As Range
+    Dim previousEnableEvents As Boolean
+    Dim shouldDisableEvents As Boolean
+    Dim jobTitleChanged As Boolean
+    Dim personNameChanged As Boolean
+    Dim latestJobTitle As String
+
+    previousEnableEvents = Application.EnableEvents
 
     On Error GoTo ExitHandler
 
-    Set rngTarget = Me.Range("AF30")
+    Set rngReasonCell = Me.Range(RYOHI_REASON_CELL)
+    Set rngReasonCheck = GetMergedCheckRange(rngReasonCell)
 
-    If rngTarget.MergeCells Then
-        Set rngCheck = rngTarget.MergeArea
-    Else
-        Set rngCheck = rngTarget
+    Set rngJobTitleCell = GetNamedTopLeftCell(RYOHI_NAME_JOB_TITLE_CELL)
+    Set rngPersonNameCell = GetNamedTopLeftCell(RYOHI_NAME_PERSON_NAME_CELL)
+
+    If Not rngJobTitleCell Is Nothing Then
+        If rngJobTitleCell.Worksheet Is Me Then Set rngJobTitleCheck = GetMergedCheckRange(rngJobTitleCell)
     End If
 
-    'AF30の結合範囲以外の変更なら終了
-    If Intersect(Target, rngCheck) Is Nothing Then Exit Sub
+    If Not rngPersonNameCell Is Nothing Then
+        If rngPersonNameCell.Worksheet Is Me Then Set rngPersonNameCheck = GetMergedCheckRange(rngPersonNameCell)
+    End If
 
-    Set wsMaster = ThisWorkbook.Worksheets("マスタ")
+    jobTitleChanged = Not rngJobTitleCheck Is Nothing And Not Intersect(Target, rngJobTitleCheck) Is Nothing
+    personNameChanged = Not rngPersonNameCheck Is Nothing And Not Intersect(Target, rngPersonNameCheck) Is Nothing
 
+    shouldDisableEvents = (Not Intersect(Target, rngReasonCheck) Is Nothing) Or jobTitleChanged Or personNameChanged
+    If Not shouldDisableEvents Then Exit Sub
+
+    previousEnableEvents = Application.EnableEvents
     Application.EnableEvents = False
 
-    '結合セルの左上セルの値を取得
-    txt = Trim(CStr(rngCheck.Cells(1, 1).Value))
+    If Not (Intersect(Target, rngReasonCheck) Is Nothing) Then
+        Set wsMaster = ThisWorkbook.Worksheets(RYOHI_MASTER_SHEET_NAME)
 
-    If txt <> "" Then
+        '結合セルの左上セルの値を取得
+        reasonText = CleanMasterTextForSave(rngReasonCheck.Cells(1, 1).Value)
 
-        Set found = wsMaster.Range("A2:A1000").Find( _
-            What:=txt, _
-            LookIn:=xlValues, _
-            LookAt:=xlWhole)
+        If NormalizeMasterText(reasonText) <> "" Then
 
-        If found Is Nothing Then
-            lastRow = wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row
-            If lastRow < 2 Then lastRow = 1
+            Set found = wsMaster.Range("A2:A1000").Find( _
+                What:=reasonText, _
+                LookIn:=xlValues, _
+                LookAt:=xlWhole)
 
-            wsMaster.Cells(lastRow + 1, "A").Value = txt
+            If found Is Nothing Then
+                lastRow = wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row
+                If lastRow < 2 Then lastRow = 1
+
+                wsMaster.Cells(lastRow + 1, "A").Value = reasonText
+            End If
+
         End If
+    End If
 
+    If personNameChanged Then
+        latestJobTitle = GetLatestJobTitleByPersonName(rngPersonNameCell.Value)
+        If NormalizeMasterText(latestJobTitle) <> "" Then
+            '氏名選択時は、マスタの最終行にある最新職名で職名欄を上書きする仕様
+            rngJobTitleCell.Value = latestJobTitle
+        End If
+    End If
+
+    If jobTitleChanged Or personNameChanged Then
+        RegisterJobTitleAndPersonName rngJobTitleCell.Value, rngPersonNameCell.Value
     End If
 
 ExitHandler:
-    Application.EnableEvents = True
+    Application.EnableEvents = previousEnableEvents
 
 End Sub
-
