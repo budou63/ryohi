@@ -1,0 +1,52 @@
+Option Explicit
+
+Private Sub Worksheet_Change(ByVal Target As Range)
+
+    Dim wsMaster As Worksheet
+    Dim rngTarget As Range
+    Dim rngCheck As Range
+    Dim txt As String
+    Dim lastRow As Long
+    Dim found As Range
+
+    On Error GoTo ExitHandler
+
+    Set rngTarget = Me.Range("AF30")
+
+    If rngTarget.MergeCells Then
+        Set rngCheck = rngTarget.MergeArea
+    Else
+        Set rngCheck = rngTarget
+    End If
+
+    'AF30の結合範囲以外の変更なら終了
+    If Intersect(Target, rngCheck) Is Nothing Then Exit Sub
+
+    Set wsMaster = ThisWorkbook.Worksheets("マスタ")
+
+    Application.EnableEvents = False
+
+    '結合セルの左上セルの値を取得
+    txt = Trim(CStr(rngCheck.Cells(1, 1).Value))
+
+    If txt <> "" Then
+
+        Set found = wsMaster.Range("A2:A1000").Find( _
+            What:=txt, _
+            LookIn:=xlValues, _
+            LookAt:=xlWhole)
+
+        If found Is Nothing Then
+            lastRow = wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row
+            If lastRow < 2 Then lastRow = 1
+
+            wsMaster.Cells(lastRow + 1, "A").Value = txt
+        End If
+
+    End If
+
+ExitHandler:
+    Application.EnableEvents = True
+
+End Sub
+
